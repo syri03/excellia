@@ -46,25 +46,17 @@ public class DynamicApiCallerService {
         }
 
         try {
-            validate(config); // Validate config before proceeding
-
-            String requestUrl = config.getUrl();
-            if (requestUrl == null || !requestUrl.matches("^(https?)://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$")) {
-                log.error("Invalid URL format: {}. Must be a fully qualified URL (e.g., https://example.com/path).", requestUrl);
-                throw new IllegalArgumentException("Invalid URL format: " + requestUrl + ". Must be a fully qualified URL (e.g., https://example.com/path).");
-            }
+            validate(config);
 
             String operationId = config.getOperationId();
             String httpMethod = config.getMethod() != null ? config.getMethod().toUpperCase() : "GET";
-            log.info("Request URL: {}, OperationId: {}, HTTP Method: {}", 
-                requestUrl, operationId, httpMethod);
+            log.info("Invoking operation: {}, HTTP Method: {}", operationId, httpMethod);
 
-            Method setBasePathMethod = apiClient.getClass().getMethod("setBasePath", String.class);
-            setBasePathMethod.invoke(apiClient, requestUrl);
-
+            // Set debugging
             Method setDebuggingMethod = apiClient.getClass().getMethod("setDebugging", boolean.class);
             setDebuggingMethod.invoke(apiClient, true);
 
+            // Apply headers
             if (config.getHeaders() != null && !config.getHeaders().isEmpty()) {
                 Method addDefaultHeaderMethod = apiClient.getClass().getMethod("addDefaultHeader", String.class, String.class);
                 config.getHeaders().forEach((key, value) -> {
@@ -77,7 +69,6 @@ public class DynamicApiCallerService {
                 });
             }
 
-            log.info("Invoking operation: {}", operationId);
             Method apiMethod = findApiMethod(operationId);
             if (apiMethod == null) {
                 log.error("No method found for operationId: {}", operationId);
@@ -95,7 +86,7 @@ public class DynamicApiCallerService {
                     queryString.append(key).append("=").append(value).append("&");
                 });
             }
-            log.info("Expected request URL: {}{}", requestUrl, queryString.toString());
+            log.info("Query string: {}", queryString.toString());
 
             Object result = apiMethod.invoke(defaultApi, parameters);
             log.info("Raw API response: {}", result);

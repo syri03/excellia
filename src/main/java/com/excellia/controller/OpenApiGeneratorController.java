@@ -37,6 +37,11 @@ public class OpenApiGeneratorController {
             String configJson = objectMapper.writeValueAsString(config);
             log.info("Generating OpenAPI spec and client code for config: {}", configJson);
 
+            if (config.getUrl() == null || config.getUrl().isEmpty()) {
+                log.error("URL is required for generation");
+                return ResponseEntity.status(400).body("❌ URL is required for generation");
+            }
+
             openApiGeneratorService.generateFromConfig(config);
             codeGenLibraryService.generateCode();
             
@@ -54,6 +59,11 @@ public class OpenApiGeneratorController {
         try {
             String configJson = objectMapper.writeValueAsString(config);
             log.info("Executing API call for config: {}", configJson);
+
+            if (config.getOperationId() == null || config.getOperationId().isEmpty()) {
+                log.error("OperationId is required for execution");
+                return ResponseEntity.status(400).body("❌ OperationId is required");
+            }
 
             dynamicApiCallerService.initializeGeneratedClient();
             log.debug("Generated client initialized");

@@ -21,33 +21,19 @@ public class OpenApiCodeGenLibraryService {
     private static final String OUTPUT_DIR = "target/generated-sources/openapi";
     private static final String BASE_PACKAGE = "com.excellia";
 
-    /**
-     * This method is used to generate code from a previously generated YAML file.
-     * (Classic use case)
-     */
     public void generateCode() {
         generateCodeInternal(Paths.get(YAML_DIR, YAML_FILE).toString());
     }
 
-    /**
-     * New method: generate code from a user-sent YAML file.
-     * (if you want to generate dynamically in future versions)
-     */
     public void generateCodeFromConfig(ApiConfig apiConfig) {
-        // (Optional) You could generate a custom YAML per user operationId if needed
         String yamlPath = Paths.get(YAML_DIR, YAML_FILE).toString();
         generateCodeInternal(yamlPath);
     }
 
-    /**
-     * Internal reusable method to trigger OpenAPI code generation.
-     */
     private void generateCodeInternal(String yamlAbsolutePath) {
         try {
-            // Clean old files
             cleanOutputDirectory();
 
-            // Configure the generator
             CodegenConfigurator configurator = new CodegenConfigurator()
                 .setGeneratorName("java")
                 .setLibrary("resttemplate")
@@ -58,15 +44,14 @@ public class OpenApiCodeGenLibraryService {
                 .setInvokerPackage(BASE_PACKAGE + ".core")
                 .setValidateSpec(true);
 
-            // Additional generation properties
             Map<String, Object> props = new HashMap<>();
             props.put("useSpringBoot", "true");
             props.put("dateLibrary", "java8");
             props.put("serializationLibrary", "jackson");
             props.put("openApiNullable", "false");
+            props.put("useServerUrl", "true"); // Ensure generated client uses server URL from YAML
             configurator.setAdditionalProperties(props);
 
-            // Launch the code generator
             new DefaultGenerator()
                 .opts(configurator.toClientOptInput())
                 .generate();
@@ -81,9 +66,6 @@ public class OpenApiCodeGenLibraryService {
         }
     }
 
-    /**
-     * Clean the output directory before new generation.
-     */
     private void cleanOutputDirectory() {
         Path outputPath = Paths.get(OUTPUT_DIR);
         if (Files.exists(outputPath)) {
@@ -91,9 +73,6 @@ public class OpenApiCodeGenLibraryService {
         }
     }
 
-    /**
-     * Recursive delete for a folder and its contents.
-     */
     private void deleteDirectory(File directory) {
         if (directory.exists()) {
             File[] files = directory.listFiles();

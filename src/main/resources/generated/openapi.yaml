@@ -3,7 +3,7 @@ info:
   title: Generated API
   version: 1.0.0
 servers:
-  - url: https://jsonplaceholder.typicode.com
+  - url: https://jsonplaceholder.typicode.com/POSTS
 paths:
   /:
     get:
