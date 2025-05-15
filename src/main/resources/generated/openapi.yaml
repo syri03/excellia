@@ -1,0 +1,118 @@
+openapi: 3.1.0
+info: {title: Generated API, version: 1.0.0}
+servers:
+- {url: 'https://jsonplaceholder.typicode.com'}
+paths:
+  /:
+    get:
+      operationId: postsOperation_GET
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+                  body: {type: string}
+                  userId: {type: integer}
+      parameters:
+      - in: query
+        schema: {type: string}
+        name: id
+    post:
+      operationId: postsOperation_POST
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+                  body: {type: string}
+                  userId: {type: integer}
+      parameters:
+      - in: query
+        schema: {type: string}
+        name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: {type: string}
+                body: {type: string}
+                userId: {type: integer}
+    put:
+      operationId: postsOperation_PUT
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+                  body: {type: string}
+                  userId: {type: integer}
+      parameters:
+      - in: query
+        schema: {type: string}
+        name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: {type: string}
+                body: {type: string}
+                userId: {type: integer}
+    patch:
+      operationId: postsOperation_PATCH
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+                  body: {type: string}
+                  userId: {type: integer}
+      parameters:
+      - in: query
+        schema: {type: string}
+        name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: {type: string}
+                body: {type: string}
+                userId: {type: integer}
+    delete:
+      operationId: postsOperation_DELETE
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: {type: string}
+                  body: {type: string}
+                  userId: {type: integer}
+      parameters:
+      - in: query
+        schema: {type: string}
+        name: id
