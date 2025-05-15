@@ -50,7 +50,7 @@ public class OpenApiGeneratorController {
     }
 
     @PostMapping("/execute")
-    public ResponseEntity<?> executeApiCall(@RequestBody ApiConfig config) {
+    public ResponseEntity<?> executeApiCall(@RequestBody ApiConfig config) throws Exception {
         try {
             String configJson = objectMapper.writeValueAsString(config);
             log.info("Executing API call for config: {}", configJson);
@@ -64,7 +64,7 @@ public class OpenApiGeneratorController {
             log.debug("Adjusted operationId to: {}", effectiveOperationId);
 
             Object response = dynamicApiCallerService.callApi(config);
-            log.info("API call successful for operation: {}, response: {}", effectiveOperationId, response);
+            log.info("API call successful for operation: {}", effectiveOperationId);
             return ResponseEntity.ok(response);
         } catch (IllegalStateException e) {
             log.warn("Invalid state: {}", e.getMessage());
@@ -74,10 +74,6 @@ public class OpenApiGeneratorController {
             log.error("API execution failed: {}", e.getMessage(), e);
             return ResponseEntity.status(500)
                 .body("❌ API Error: " + e.getMessage());
-        } catch (Exception e) {
-            log.error("Unexpected error during API execution: {}", e.getMessage(), e);
-            return ResponseEntity.status(500)
-                .body("❌ Unexpected Error: " + e.getMessage());
         }
     }
 }

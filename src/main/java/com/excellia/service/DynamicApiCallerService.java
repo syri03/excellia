@@ -11,7 +11,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.excellia.dto.ApiConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class DynamicApiCallerService {
@@ -19,11 +18,6 @@ public class DynamicApiCallerService {
     private Object apiClient;
     private Object defaultApi;
     private boolean isGenerated = false;
-    private final ObjectMapper objectMapper;
-
-    public DynamicApiCallerService(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     public void initializeGeneratedClient() throws Exception {
         log.info("Initializing generated API client");
@@ -46,12 +40,14 @@ public class DynamicApiCallerService {
     }
 
     public Object callApi(ApiConfig config) {
-        if (!isGenerated || defaultApi == null) {
-            log.error("API client not generated or initialized. Call /generate first.");
-            throw new IllegalStateException("API client not generated or initialized. Call /generate first.");
+        if (!isGenerated) {
+            log.error("API client not generated. Call /generate first.");
+            throw new IllegalStateException("API client not generated. Call /generate first.");
         }
 
         try {
+            validate(config); // Validate config before proceeding
+
             String requestUrl = config.getUrl();
             if (requestUrl == null || !requestUrl.matches("^(https?)://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$")) {
                 log.error("Invalid URL format: {}. Must be a fully qualified URL (e.g., https://example.com/path).", requestUrl);
@@ -88,8 +84,9 @@ public class DynamicApiCallerService {
                 throw new UnsupportedOperationException("No method found for operationId: " + operationId);
             }
 
-            Object[] parameters = prepareMethodParameters(apiMethod, config.getQueryParams(), config.getBody(), config.getBodies());
-            log.debug("Calling API method {} with parameters: {}", apiMethod.getName(), Arrays.toString(parameters));
+            Object requestBody = getRequestBody(config);
+            Object[] parameters = prepareMethodParameters(apiMethod, config.getQueryParams(), requestBody);
+            log.debug("Calling API method {} with parameters: {}", apiMethod.getName(), parameters);
 
             StringBuilder queryString = new StringBuilder();
             if (config.getQueryParams() != null && !config.getQueryParams().isEmpty()) {
@@ -102,17 +99,7 @@ public class DynamicApiCallerService {
 
             Object result = apiMethod.invoke(defaultApi, parameters);
             log.info("Raw API response: {}", result);
-
-            // Attempt to serialize/deserialize the response to ensure it's JSON-compatible
-            try {
-                String jsonResult = objectMapper.writeValueAsString(result);
-                Object parsedResult = objectMapper.readValue(jsonResult, Object.class);
-                log.debug("Parsed JSON response: {}", parsedResult);
-                return parsedResult;
-            } catch (Exception e) {
-                log.warn("Failed to serialize/deserialize response, returning raw result: {}", e.getMessage());
-                return result;
-            }
+            return result;
 
         } catch (Exception e) {
             log.error("API call failed: {}", e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), e);
@@ -120,15 +107,14 @@ public class DynamicApiCallerService {
         }
     }
 
-    private Method findApiMethod(String operationId) {
+    private Method findApiMethod(String operationId) throws Exception {
         log.info("Looking for method with operationId: {}", operationId);
-        Class<?> defaultApiClass = defaultApi.getClass();
+        Class<?> defaultApiClass = Class.forName("com.excellia.api.DefaultApi");
         String availableMethods = Arrays.stream(defaultApiClass.getMethods())
             .map(Method::getName)
             .collect(Collectors.joining(", "));
         log.info("Available methods in DefaultApi: {}", availableMethods);
 
-        // Try raw operationId
         for (Method method : defaultApiClass.getMethods()) {
             if (method.getName().equalsIgnoreCase(operationId)) {
                 log.info("Found method: {}", method.getName());
@@ -136,7 +122,6 @@ public class DynamicApiCallerService {
             }
         }
 
-        // Try camelCase version (e.g., postsOperation_GET -> postsOperationGet)
         String camelCaseOperationId = toCamelCase(operationId);
         for (Method method : defaultApiClass.getMethods()) {
             if (method.getName().equalsIgnoreCase(camelCaseOperationId)) {
@@ -165,38 +150,44 @@ public class DynamicApiCallerService {
         return camelCase.toString();
     }
 
-    private Object[] prepareMethodParameters(Method method, Map<String, String> queryParams, Object body, Map<String, Object> bodies) {
+    private Object[] prepareMethodParameters(Method method, Map<String, String> queryParams, Object body) {
         Parameter[] parameters = method.getParameters();
         Object[] args = new Object[parameters.length];
-        String httpMethod = method.getName().contains("Get") ? "get" :
-                           method.getName().contains("Post") ? "post" :
-                           method.getName().contains("Put") ? "put" :
-                           method.getName().contains("Patch") ? "patch" : null;
-
         for (int i = 0; i < parameters.length; i++) {
             String paramName = parameters[i].getName();
-            if ("body".equals(paramName)) {
-                // Prioritize method-specific body from bodies map
-                if (httpMethod != null && bodies != null && bodies.containsKey(httpMethod)) {
-                    args[i] = bodies.get(httpMethod);
-                    log.debug("Mapping method-specific body for {} to: {}", httpMethod, args[i]);
-                } else if (body != null && !body.toString().isEmpty()) {
-                    args[i] = body;
-                    log.debug("Mapping fallback body to: {}", body);
-                } else {
-                    args[i] = null;
-                    log.debug("No body provided for parameter: {}", paramName);
-                }
+            if ("body".equals(paramName) && body != null && !body.toString().isEmpty()) {
+                args[i] = body;
+                log.debug("Mapping body parameter to: {}", body);
             } else {
-                // Remove special handling for "id" -> "user" mapping
-                String queryParamKey = paramName;
+                String queryParamKey = paramName.equals("id") && queryParams != null && queryParams.containsKey("user") ? "user" : paramName;
                 args[i] = queryParams != null ? queryParams.get(queryParamKey) : null;
-                log.debug("Mapping parameter {} to value: {}", paramName, args[i]);
+                log.debug("Mapping parameter {} (queried as {}) to value: {}", paramName, queryParamKey, args[i]);
             }
             if (args[i] == null && !parameters[i].getType().isPrimitive()) {
                 log.warn("Missing parameter: {}", paramName);
             }
         }
         return args;
+    }
+
+    private Object getRequestBody(ApiConfig config) {
+        String httpMethod = config.getMethod() != null ? config.getMethod().toLowerCase() : "get";
+        if (config.getBodies() != null && config.getBodies().containsKey(httpMethod)) {
+            log.debug("Using method-specific body for {}: {}", httpMethod, config.getBodies().get(httpMethod));
+            return config.getBodies().get(httpMethod);
+        }
+        log.debug("Falling back to default body: {}", config.getBody());
+        return config.getBody();
+    }
+
+    private void validate(ApiConfig config) {
+        if (config.getMethods() != null && config.getBodies() != null) {
+            for (String method : config.getMethods()) {
+                if (!method.equalsIgnoreCase("delete") && !method.equalsIgnoreCase("get") && 
+                    !config.getBodies().containsKey(method.toLowerCase())) {
+                    log.warn("No body provided for method: {}. Consider adding it to the 'bodies' map.", method);
+                }
+            }
+        }
     }
 }

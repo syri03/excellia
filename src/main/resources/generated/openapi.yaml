@@ -1,118 +1,98 @@
 openapi: 3.1.0
-info: {title: Generated API, version: 1.0.0}
+info:
+  title: Generated API
+  version: 1.0.0
 servers:
-- {url: 'https://jsonplaceholder.typicode.com'}
+  - url: https://jsonplaceholder.typicode.com
 paths:
   /:
     get:
       operationId: postsOperation_GET
+      summary: Auto-generated endpoint for postsOperation_GET
+      parameters:
+        - in: query
+          name: id
+          schema:
+            type: string
       responses:
         '200':
-          description: Successful response
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  title: {type: string}
-                  body: {type: string}
-                  userId: {type: integer}
-      parameters:
-      - in: query
-        schema: {type: string}
-        name: id
     post:
       operationId: postsOperation_POST
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  title: {type: string}
-                  body: {type: string}
-                  userId: {type: integer}
+      summary: Auto-generated endpoint for postsOperation_POST
       parameters:
-      - in: query
-        schema: {type: string}
-        name: id
+        - in: query
+          name: id
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              properties:
-                title: {type: string}
-                body: {type: string}
-                userId: {type: integer}
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
     put:
       operationId: postsOperation_PUT
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  title: {type: string}
-                  body: {type: string}
-                  userId: {type: integer}
+      summary: Auto-generated endpoint for postsOperation_PUT
       parameters:
-      - in: query
-        schema: {type: string}
-        name: id
+        - in: query
+          name: id
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              properties:
-                title: {type: string}
-                body: {type: string}
-                userId: {type: integer}
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
     patch:
       operationId: postsOperation_PATCH
-      responses:
-        '200':
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  title: {type: string}
-                  body: {type: string}
-                  userId: {type: integer}
+      summary: Auto-generated endpoint for postsOperation_PATCH
       parameters:
-      - in: query
-        schema: {type: string}
-        name: id
+        - in: query
+          name: id
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               type: object
-              properties:
-                title: {type: string}
-                body: {type: string}
-                userId: {type: integer}
-    delete:
-      operationId: postsOperation_DELETE
       responses:
         '200':
-          description: Successful response
+          description: Success
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  title: {type: string}
-                  body: {type: string}
-                  userId: {type: integer}
+    delete:
+      operationId: postsOperation_DELETE
+      summary: Auto-generated endpoint for postsOperation_DELETE
       parameters:
-      - in: query
-        schema: {type: string}
-        name: id
+        - in: query
+          name: id
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object

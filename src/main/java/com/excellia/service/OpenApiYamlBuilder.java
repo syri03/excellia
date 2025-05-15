@@ -1,114 +1,101 @@
 package com.excellia.service;
 
+import org.springframework.stereotype.Service;
 import com.excellia.dto.ApiConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-import org.yaml.snakeyaml.Yaml;
 
-import java.io.FileWriter;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
-@Component
+@Service
 public class OpenApiYamlBuilder {
-    private static final Logger log = LoggerFactory.getLogger(OpenApiYamlBuilder.class);
 
     public String buildYaml(ApiConfig config) {
-        log.info("Building OpenAPI YAML from config");
+        StringBuilder yaml = new StringBuilder();
 
-        Map<String, Object> openApiSpec = new LinkedHashMap<>();
-        openApiSpec.put("openapi", "3.1.0");
-        openApiSpec.put("info", Map.of(
-            "title", "Generated API",
-            "version", "1.0.0"
-        ));
-        openApiSpec.put("servers", List.of(
-            Map.of("url", config.getUrl())
-        ));
+        String fullUrl = config.getUrl();
+        if (fullUrl == null || !fullUrl.matches("^(https?)://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?$")) {
+            throw new IllegalArgumentException("Invalid URL: " + fullUrl + ". Must be a fully qualified URL (e.g., https://example.com/path).");
+        }
 
-        Map<String, Object> paths = new LinkedHashMap<>();
-        Map<String, Object> pathItem = new LinkedHashMap<>();
+        String operationPath = "/";
 
-        List<String> methods = config.getMethods() != null ? config.getMethods() : List.of(config.getMethod().toLowerCase());
-        for (String method : methods) {
-            String httpMethod = method.toLowerCase();
-            Map<String, Object> operation = new LinkedHashMap<>();
-            operation.put("operationId", config.getOperationId() + "_" + httpMethod.toUpperCase());
-            operation.put("responses", Map.of(
-                "200", Map.of(
-                    "description", "Successful response",
-                    "content", Map.of(
-                        "application/json", Map.of(
-                            "schema", Map.of("type", "object")
-                        )
-                    )
-                )
-            ));
+        yaml.append("openapi: 3.1.0\n")
+            .append("info:\n")
+            .append("  title: Generated API\n")
+            .append("  version: 1.0.0\n")
+            .append("servers:\n")
+            .append("  - url: ").append(fullUrl).append("\n")
+            .append("paths:\n")
+            .append("  ").append(operationPath).append(":\n");
+
+        List<String> methodsToGenerate = config.getMethods() != null && !config.getMethods().isEmpty() 
+            ? config.getMethods() 
+            : List.of(config.getMethod() != null ? config.getMethod().toLowerCase() : "get");
+
+        for (String httpMethod : methodsToGenerate) {
+            httpMethod = httpMethod.toLowerCase();
+            String methodOperationId = config.getOperationId() + "_" + httpMethod.toUpperCase();
+            
+            yaml.append("    ").append(httpMethod).append(":\n")
+                .append("      operationId: ").append(methodOperationId).append("\n")
+                .append("      summary: Auto-generated endpoint for ").append(methodOperationId).append("\n");
 
             if (config.getQueryParams() != null && !config.getQueryParams().isEmpty()) {
-                List<Map<String, Object>> parameters = new ArrayList<>();
+                yaml.append("      parameters:\n");
                 config.getQueryParams().forEach((name, value) -> {
-                    parameters.add(Map.of(
-                        "name", name,
-                        "in", "query",
-                        "schema", Map.of("type", "string")
-                    ));
+                    yaml.append("        - in: query\n")
+                        .append("          name: ").append(name).append("\n")
+                        .append("          schema:\n")
+                        .append("            type: string\n");
                 });
-                operation.put("parameters", parameters);
             }
 
-            if (List.of("post", "put", "patch").contains(httpMethod)) {
-                Object requestBody = null;
-                if (config.getBodies() != null && config.getBodies().containsKey(httpMethod)) {
-                    requestBody = config.getBodies().get(httpMethod);
-                    log.debug("Using method-specific body for {}: {}", httpMethod, requestBody);
-                } else if (config.getBody() != null) {
-                    requestBody = config.getBody();
-                    log.debug("Using fallback body for {}: {}", httpMethod, requestBody);
-                }
-
-                if (requestBody != null) {
-                    operation.put("requestBody", Map.of(
-                        "content", Map.of(
-                            "application/json", Map.of(
-                                "schema", generateSchema(requestBody)
-                            )
-                        )
-                    ));
-                }
+            if (config.getBodies() != null && config.getBodies().containsKey(httpMethod) && 
+                Arrays.asList("post", "put", "patch").contains(httpMethod)) {
+                yaml.append("      requestBody:\n")
+                    .append("        content:\n")
+                    .append("          application/json:\n")
+                    .append("            schema:\n")
+                    .append("              type: object\n")
+                    .append("              properties:\n");
+                Map<String, Object> body = (Map<String, Object>) config.getBodies().get(httpMethod);
+                body.forEach((key, value) -> {
+                    yaml.append("                ").append(key).append(":\n")
+                        .append("                  type: ").append(inferType(value)).append("\n");
+                });
+            } else if (config.getBody() != null && !config.getBody().toString().isEmpty() && 
+                Arrays.asList("post", "put", "patch").contains(httpMethod)) {
+                yaml.append("      requestBody:\n")
+                    .append("        content:\n")
+                    .append("          application/json:\n")
+                    .append("            schema:\n")
+                    .append("              type: object\n");
             }
 
-            pathItem.put(httpMethod, operation);
+            yaml.append("      responses:\n")
+                .append("        '200':\n")
+                .append("          description: Success\n")
+                .append("          content:\n")
+                .append("            application/json:\n")
+                .append("              schema:\n")
+                .append("                type: object\n");
         }
 
-        paths.put("/", pathItem);
-        openApiSpec.put("paths", paths);
-
-        // Return YAML as string
-        return new Yaml().dump(openApiSpec);
+        return yaml.toString();
     }
 
-    private Map<String, Object> generateSchema(Object data) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        if (data instanceof Map) {
-            schema.put("type", "object");
-            Map<String, Object> properties = new LinkedHashMap<>();
-            ((Map<?, ?>) data).forEach((key, value) -> {
-                properties.put(key.toString(), Map.of("type", getType(value)));
-            });
-            schema.put("properties", properties);
+    private String inferType(Object value) {
+        if (value instanceof String) {
+            return "string";
+        } else if (value instanceof Number) {
+            return "number";
+        } else if (value instanceof Boolean) {
+            return "boolean";
+        } else if (value instanceof Map || value instanceof List) {
+            return "object";
         } else {
-            schema.put("type", getType(data));
+            return "string"; // Default fallback
         }
-        return schema;
-    }
-
-    private String getType(Object value) {
-        if (value instanceof String) return "string";
-        if (value instanceof Integer || value instanceof Long) return "integer";
-        if (value instanceof Double || value instanceof Float) return "number";
-        if (value instanceof Boolean) return "boolean";
-        if (value instanceof List) return "array";
-        return "object";
     }
 }
